@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Attendance</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="admin-page">
+    <div class="container admin-container">
+        <h1>Admin Panel</h1>
+        <p><strong>Date:</strong> {{ today }}</p>
+
+        {% if records %}
+            <table class="attendance-table">
+                <thead>
+                    <tr>
+                        <th>Employee ID</th>
+                        <th>Full Name</th>
+                        <th>Check-In Time</th>
+                        <th>Check-Out Time</th>
+                        <th>Late Status</th>
+                        <th>Hours Worked</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                        <tr>
+                            <td>{{ record.employee_id }}</td>
+                            <td>{{ record.first_name }} {{ record.last_name }}</td>
+                            <td>{{ record.check_in_time.strftime('%H:%M:%S') if record.check_in_time else 'Not Recorded' }}</td>
+                            <td>{{ record.check_out_time.strftime('%H:%M:%S') if record.check_out_time else 'Not Recorded' }}</td>
+                            <td>{{ record.late_status }}</td>
+                            <td>{{ record.hours_worked if record.hours_worked else 'Not Available' }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No attendance records found for today.</p>
+        {% endif %}
+
+        <p><a href="/" class="back-link">Back to Home</a></p>
+    </div>
+</body>
+</html>

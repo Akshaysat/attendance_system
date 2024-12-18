@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance System</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        {% if logged_in %}
+            <!-- UI for Logged-In Users -->
+            <h1>Attendance System</h1>
+            <p class="welcome-message">Welcome, <strong>{{ first_name }}</strong>!</p>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Check-In and Check-Out Times -->
+            <div class="time-info">
+                <p class="time-detail"><strong>Sign-In Time:</strong> {{ checkin_time if checkin_time else "N.A" }}</p>
+                <p class="time-detail"><strong>Sign-Out Time:</strong> {{ checkout_time if checkout_time else "N.A" }}</p>
+            </div>
+
+            <!-- Buttons -->
+            <div class="button-container">
+                <form method="POST" action="/" class="home-form">
+                    <!-- Check-In Button -->
+                    <button 
+                        type="submit" 
+                        name="action" 
+                        value="checkin" 
+                        class="checkin-button" 
+                        {% if has_checked_in %}disabled{% endif %}>
+                        Sign-In
+                    </button>
+                    
+                    <!-- Check-Out Button -->
+                    <button 
+                        type="submit" 
+                        name="action" 
+                        value="checkout" 
+                        class="checkout-button">
+                        Sign-Out
+                    </button>
+                </form>
+            </div>
+            <p>----</p>
+            <p><a href="/logout" class="logout-link">Logout</a></p>
+        {% else %}
+            <!-- Default UI for Non-Logged-In Users -->
+            <h1>Welcome to the Attendance System</h1>
+            <p>
+                <a href="/register" class="home-link">Register</a> |
+                <a href="/login" class="home-link">Login</a>
+            </p>
+        {% endif %}
+    </div>
+</body>
+</html>

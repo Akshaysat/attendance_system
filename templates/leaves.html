@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leave Dashboard</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <style>
+    /* Container & Section Layout */
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    section {
+      margin-bottom: 40px;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #fdfdfd;
+    }
+    h1, h2, h3 {
+      text-align: center;
+    }
+    /* Chart Section */
+    .charts-wrapper {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
+      margin-top: 20px;
+    }
+    .chart-container {
+      width: 300px;
+      margin: 20px;
+    }
+    /* Form Styles */
+    form label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    form input[type="date"],
+    form textarea,
+    form select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      box-sizing: border-box;
+    }
+    form button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    /* Table Styles */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    table, th, td {
+      border: 1px solid #ccc;
+    }
+    th, td {
+      padding: 10px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    /* Links */
+    .logout-link, .home-link {
+      display: block;
+      text-align: center;
+      margin-top: 20px;
+      text-decoration: none;
+      font-weight: bold;
+    }
+  </style>
+  <!-- Include Chart.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Include Chart.js Data Labels Plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Leave Dashboard</h1>
+    
+    <!-- Section 1: Leave Dashboard (Pie Charts) -->
+    <section id="dashboard-section">
+      <h2>Leaves</h2>
+      <div class="charts-wrapper">
+        <!-- Sick Leave Chart -->
+        <div class="chart-container">
+          <h3>Sick Leave</h3>
+          <canvas id="sickLeaveChart"></canvas>
+        </div>
+        <!-- Casual Leave Chart -->
+        <div class="chart-container">
+          <h3>Casual Leave</h3>
+          <canvas id="casualLeaveChart"></canvas>
+        </div>
+        <!-- Privilege Leave Chart -->
+        <div class="chart-container">
+          <h3>Privilege Leave</h3>
+          <canvas id="privilegeLeaveChart"></canvas>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Section 2: Apply for a New Leave -->
+    <section id="apply-section">
+      <h2>Apply for a New Leave</h2>
+      <form method="POST" action="/leaves">
+        <label for="leave_date">Leave Date:</label>
+        <input type="date" id="leave_date" name="leave_date" required>
+        
+        <label for="leave_type">Leave Type:</label>
+        <select id="leave_type" name="leave_type" required>
+          <option value="Casual Leave">Casual Leave</option>
+          <option value="Sick Leave">Sick Leave</option>
+          <option value="Privilege Leave">Privilege Leave</option>
+        </select>
+        
+        <label for="reason">Reason:</label>
+        <textarea id="reason" name="reason" rows="4" required></textarea>
+        
+        <button type="submit">Apply for Leave</button>
+      </form>
+    </section>
+    
+    <!-- Section 3: Your Leave Applications -->
+    <section id="applications-section">
+      <h2>Your Leave Applications</h2>
+      {% if leaves %}
+        <table>
+          <thead>
+            <tr>
+              <th>Leave ID</th>
+              <th>Leave Date</th>
+              <th>Leave Type</th>
+              <th>Reason</th>
+              <th>Status</th>
+              <th>Applied On</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for leave in leaves %}
+              <tr>
+                <td>{{ leave['leave_id'] }}</td>
+                <td>{{ leave['leave_date'] }}</td>
+                <td>{{ leave['leave_type'] }}</td>
+                <td>{{ leave['reason'] }}</td>
+                <td>{{ leave['status'] }}</td>
+                <td>{{ leave['application_date'] }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p style="text-align: center;">No leave applications found.</p>
+      {% endif %}
+    </section>
+    
+    <p style="text-align: center;"><a href="/logout" class="logout-link">Logout</a></p>
+    <p style="text-align: center;"><a href="/" class="home-link">Back to Home</a></p>
+  </div>
+  
+  <script>
+    // Function to create a pie chart for a given canvas with data labels
+    function createLeaveChart(canvasId, used, remaining, colors) {
+      var ctx = document.getElementById(canvasId).getContext('2d');
+      new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: ['Used', 'Remaining'],
+          datasets: [{
+            data: [used, remaining],
+            backgroundColor: colors,
+            borderColor: colors.map(color => color.replace('0.7', '1')),
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom' },
+            datalabels: {
+              formatter: function(value, context) {
+                return value;
+              },
+              color: '#fff',
+              font: { weight: 'bold' }
+            }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
+    }
+    
+    // Create individual pie charts for each leave type
+    // Sick Leave Chart
+    createLeaveChart('sickLeaveChart', 
+      {{ used_leaves["Sick Leave"] }}, 
+      {{ remaining_leaves["Sick Leave"] }}, 
+      ['rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)']);
+    
+    // Casual Leave Chart
+    createLeaveChart('casualLeaveChart', 
+      {{ used_leaves["Casual Leave"] }}, 
+      {{ remaining_leaves["Casual Leave"] }}, 
+      ['rgba(54, 162, 235, 0.7)', 'rgba(153, 102, 255, 0.7)']);
+    
+    // Privilege Leave Chart
+    createLeaveChart('privilegeLeaveChart', 
+      {{ used_leaves["Privilege Leave"] }}, 
+      {{ remaining_leaves["Privilege Leave"] }}, 
+      ['rgba(255, 206, 86, 0.7)', 'rgba(255, 159, 64, 0.7)']);
+  </script>
+</body>
+</html>

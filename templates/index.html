@@ -1,66 +1,170 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance System</title>
-    <link rel="stylesheet" href="/static/styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attendance System</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <style>
+    /* Table styling */
+    .tracker-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    .tracker-table th,
+    .tracker-table td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: left;
+    }
+    .tracker-table th {
+      background-color: #f2f2f2;
+    }
+    /* Overall layout */
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .time-info {
+      margin-bottom: 20px;
+    }
+    .time-detail {
+      margin: 5px 0;
+    }
+    .button-container {
+      margin-bottom: 20px;
+    }
+    .alert {
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid transparent;
+      border-radius: 4px;
+    }
+    .alert.success {
+      color: #155724;
+      background-color: #d4edda;
+      border-color: #c3e6cb;
+    }
+    .alert.error {
+      color: #721c24;
+      background-color: #f8d7da;
+      border-color: #f5c6cb;
+    }
+    .alert.warning {
+      color: #856404;
+      background-color: #fff3cd;
+      border-color: #ffeeba;
+    }
+    /* Separator styling */
+    .separator {
+      margin: 40px 0;
+      border-top: 2px solid #ddd;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        {% if logged_in %}
-            <!-- UI for Logged-In Users -->
-            <h1>Attendance System</h1>
-            <p class="welcome-message">Welcome, <strong>{{ first_name }}</strong>!</p>
+  <div class="container">
+    {% if logged_in %}
+      <!-- Attendance Section -->
+      <h1>Attendance System</h1>
+      <p class="welcome-message">Welcome, <strong>{{ first_name }}</strong>!</p>
 
-            <!-- Flash Messages -->
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert {{ category }}">{{ message }}</div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-
-            <!-- Check-In and Check-Out Times -->
-            <div class="time-info">
-                <p class="time-detail"><strong>Sign-In Time:</strong> {{ checkin_time if checkin_time else "N.A" }}</p>
-                <p class="time-detail"><strong>Sign-Out Time:</strong> {{ checkout_time if checkout_time else "N.A" }}</p>
-            </div>
-
-            <!-- Buttons -->
-            <div class="button-container">
-                <form method="POST" action="/" class="home-form">
-                    <!-- Check-In Button -->
-                    <button 
-                        type="submit" 
-                        name="action" 
-                        value="checkin" 
-                        class="checkin-button" 
-                        {% if has_checked_in %}disabled{% endif %}>
-                        Sign-In
-                    </button>
-                    
-                    <!-- Check-Out Button -->
-                    <button 
-                        type="submit" 
-                        name="action" 
-                        value="checkout" 
-                        class="checkout-button">
-                        Sign-Out
-                    </button>
-                </form>
-            </div>
-            <p>----</p>
-            <p><a href="/logout" class="logout-link">Logout</a></p>
-        {% else %}
-            <!-- Default UI for Non-Logged-In Users -->
-            <h1>Welcome to the Attendance System</h1>
-            <p>
-                <a href="/register" class="home-link">Register</a> |
-                <a href="/login" class="home-link">Login</a>
-            </p>
+      <!-- Flash Messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert {{ category }}">{{ message }}</div>
+          {% endfor %}
         {% endif %}
-    </div>
+      {% endwith %}
+
+      <!-- Check-In and Check-Out Times -->
+      <div class="time-info">
+        <p class="time-detail"><strong>Sign-In Time:</strong> {{ checkin_time if checkin_time else "N.A" }}</p>
+        <p class="time-detail"><strong>Sign-Out Time:</strong> {{ checkout_time if checkout_time else "N.A" }}</p>
+      </div>
+
+      <!-- Buttons -->
+      <div class="button-container">
+        <form method="POST" action="/" class="home-form">
+          <button 
+            type="submit" 
+            name="action" 
+            value="checkin" 
+            class="checkin-button" 
+            {% if has_checked_in %}disabled{% endif %}>
+            Sign-In
+          </button>
+          <button 
+            type="submit" 
+            name="action" 
+            value="checkout" 
+            class="checkout-button">
+            Sign-Out
+          </button>
+        </form>
+      </div>
+      <!-- Separator -->
+      <div class="separator"></div>
+
+      <!-- Pending Work Section -->
+      {% if pending_work %}
+        <h2><u>Your Pending Work</u></h2>
+        <table class="tracker-table">
+          <thead>
+            <tr>
+              <th>Client Name</th>
+              <th>Project Name</th>
+              <th>Video Type</th>
+              <th>Video Name</th>
+              <th>Start Date</th>
+              <th>Deadline Date</th>
+              <th>Video Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for task in pending_work %}
+              <tr>
+                <td>{{ task["Client Name"] }}</td>
+                <td>{{ task["Project Name"] }}</td>
+                <td>{{ task["Video Type"] }}</td>
+                <td>{{ task["Video Name"] }}</td>
+                <td>{{ task["Start Date"] }}</td>
+                <td>{{ task["Deadline Date"] }}</td>
+                <td>
+                  {% if task["Video Status"] == "Client Review" %}
+                    <span style="color: #D4AC0D;">{{ task["Video Status"] }}</span>
+                  {% elif task["Video Status"] == "Not Started" %}
+                    <span style="color: #E74C3C;">{{ task["Video Status"] }}</span>
+                  {% elif task["Video Status"] == "In Progress" %}
+                    <span style="color: #E67E22;">{{ task["Video Status"] }}</span>
+                  {% else %}
+                    {{ task["Video Status"] }}
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>No pending work found.</p>
+      {% endif %}
+    {% else %}
+      <!-- Default UI for Non-Logged-In Users -->
+      <h1>Welcome to the Attendance System</h1>
+      <p>
+        <a href="/register" class="home-link">Register</a> |
+        <a href="/login" class="home-link">Login</a>
+      </p>
+    {% endif %}
+    <p>----</p>
+    <p><a href="/logout" class="logout-link"><u>Logout</u></a></p>
+    <p></p>
+    <p></p>
+    <p style="text-align: right;"><a href="/leaves" class="logout-link"><u>Apply for Leave</u></a></p>
+
+  </div>
 </body>
 </html>

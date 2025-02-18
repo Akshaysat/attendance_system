@@ -66,6 +66,8 @@ def get_pending_work_for_user(user_full_name):
         start_date_str = task.get("Start Date", "").strip()
         if not start_date_str:
             continue
+        # Extract the date portion before any whitespace
+        start_date_str = start_date_str.split()[0]
         try:
             start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
         except Exception as e:

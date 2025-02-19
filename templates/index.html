@@ -159,12 +159,12 @@
         <a href="/login" class="home-link">Login</a>
       </p>
     {% endif %}
-    <p>----</p>
-    <p><a href="/logout" class="logout-link"><u>Logout</u></a></p>
-    <p></p>
-    <p></p>
-    <p style="text-align: right;"><a href="/leaves" class="logout-link"><u>Apply for Leave</u></a></p>
-
+   
+    {% if logged_in %}
+      <p>----</p>
+      <p style="text-align: center;"><a href="/logout" class="logout-link"><u>Logout</u></a></p>
+      <p style="text-align: right;"><a href="/leaves" class="logout-link"><u>Apply for Leave</u></a></p>
+    {% endif %}
   </div>
 </body>
 </html>

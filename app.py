@@ -53,13 +53,15 @@ def get_pending_work_for_user(user_full_name):
     
     for task in all_tasks:
         # Skip if task is already marked as Completed (case-insensitive)
-        if task.get("Video Status", "").strip().lower() == "Completed":
+        if task.get("Video Status", "").strip().lower() == "completed":
             continue
         
         # Check if user is involved (either Video Editor or Storyboarder)
         video_editor = task.get("Video Editor", "").strip()
         storyboarder = task.get("Storyboarder", "").strip()
-        if user_full_name not in (video_editor, storyboarder):
+        graphic_designer = task.get("Graphic Designer", "").strip()
+
+        if user_full_name not in (video_editor, storyboarder, graphic_designer):
             continue
         
         # Convert "Start Date" to a date object and check if it is before or equal to today
@@ -342,9 +344,11 @@ def leaves():
 
     for leave in user_leaves:
         lt = leave.get("leave_type")
-        # Only count the leave if its status is "Approved"
-        if lt in used_leaves and leave.get("status") == "Approved":
-            used_leaves[lt] += 1
+        if leave.get("status") == "Approved":
+            if lt == "Half Casual Leave":
+                used_leaves["Casual Leave"] += 0.5
+            elif lt in used_leaves:
+                used_leaves[lt] += 1
 
     remaining_leaves = { lt: total_leaves[lt] - used_leaves[lt] for lt in total_leaves }
     

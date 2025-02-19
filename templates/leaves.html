@@ -119,6 +119,7 @@
         <label for="leave_type">Leave Type:</label>
         <select id="leave_type" name="leave_type" required>
           <option value="Casual Leave">Casual Leave</option>
+          <option value="Half Casual Leave">Half Casual Leave</option>
           <option value="Sick Leave">Sick Leave</option>
           <option value="Privilege Leave">Privilege Leave</option>
         </select>
@@ -206,7 +207,7 @@
       {{ remaining_leaves["Sick Leave"] }}, 
       ['rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)']);
     
-    // Casual Leave Chart
+    // Casual Leave Chart (includes half casual leave usage)
     createLeaveChart('casualLeaveChart', 
       {{ used_leaves["Casual Leave"] }}, 
       {{ remaining_leaves["Casual Leave"] }}, 

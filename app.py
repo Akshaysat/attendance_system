@@ -9,7 +9,6 @@ from datetime import datetime, date
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'supersecretkey'  # Required for session management
-
 # --- Google Sheets Setup ---
 # Define the scope and load your service account credentials
 scope = [
@@ -79,6 +78,30 @@ def get_pending_work_for_user(user_full_name):
             pending.append(task)
     
     return pending
+
+def get_all_team_tasks(member_name=None):
+    tracker_sheet = spreadsheet.worksheet("TRACKER (NEW)")
+    all_tasks = tracker_sheet.get_all_records()
+    today = date.today()
+
+    # Filter out completed tasks
+    filtered_tasks = []
+    for task in all_tasks:
+        status = task.get("Video Status", "").strip().lower()
+        if status == "completed":
+            continue
+        
+        assigned_to = [
+            task.get("Video Editor", "").strip(),
+            task.get("Storyboarder", "").strip(),
+            task.get("Graphic Designer", "").strip()
+        ]
+        
+        if member_name and member_name not in assigned_to:
+            continue
+        
+        filtered_tasks.append(task)
+    return filtered_tasks
 
 
 def get_all_users():
@@ -244,6 +267,7 @@ def login():
 
     return render_template('login.html')
 
+
 @app.route('/admin', methods=['GET'])
 def admin():
     today_obj = date.today()
@@ -252,8 +276,8 @@ def admin():
     attendance_data = get_all_attendance()
     users_data = get_all_users()
 
+    # --- Attendance Records ---
     processed_records = []
-    # Create a dictionary for quick lookup of user details by employee_id
     users_dict = {user['employee_id']: user for user in users_data}
 
     for record in attendance_data:
@@ -263,19 +287,18 @@ def admin():
         emp_id = record.get('employee_id')
         user = users_dict.get(emp_id, {})
 
-        # Convert check-in time to datetime object (if exists)
         check_in_str = record.get('check_in_time')
+        check_out_str = record.get('check_out_time')
         check_in_obj = None
+        check_out_obj = None
         late_status = "On Time"
+        hours_worked = None
+
         if check_in_str:
             check_in_obj = datetime.strptime(check_in_str, "%Y-%m-%d %H:%M:%S")
             if check_in_obj.time() > datetime.strptime("10:00:00", "%H:%M:%S").time():
                 late_status = "Late"
 
-        # Convert check-out time to datetime object (if exists)
-        check_out_str = record.get('check_out_time')
-        check_out_obj = None
-        hours_worked = None
         if check_in_obj and check_out_str:
             check_out_obj = datetime.strptime(check_out_str, "%Y-%m-%d %H:%M:%S")
             worked_duration = check_out_obj - check_in_obj
@@ -285,13 +308,48 @@ def admin():
             "employee_id": emp_id,
             "first_name": user.get('first_name', ''),
             "last_name": user.get('last_name', ''),
-            "check_in_time": check_in_obj,   # datetime object or None
-            "check_out_time": check_out_obj,  # datetime object or None
+            "check_in_time": check_in_obj,
+            "check_out_time": check_out_obj,
             "late_status": late_status,
             "hours_worked": hours_worked
         })
 
-    return render_template('admin.html', records=processed_records, today=today_str)
+    # --- Team Work Tracker ---
+    tracker_sheet = spreadsheet.worksheet("TRACKER (NEW)")
+    all_tasks = tracker_sheet.get_all_records()
+
+    # Build unique member name list
+    member_names = set()
+    for task in all_tasks:
+        for role in ["Video Editor", "Storyboarder", "Graphic Designer"]:
+            name = task.get(role, "").strip()
+            if name:
+                member_names.add(name)
+    member_names = list(member_names)
+
+    # Filter by member
+    selected_member = request.args.get("member", "").strip()
+    filtered_tasks = []
+    for task in all_tasks:
+        if task.get("Video Status", "").strip().lower() == "completed":
+            continue
+        if selected_member:
+            if selected_member not in (
+                task.get("Video Editor", ""),
+                task.get("Storyboarder", ""),
+                task.get("Graphic Designer", "")
+            ):
+                continue
+        filtered_tasks.append(task)
+
+    return render_template(
+        "admin.html",
+        records=processed_records,
+        today=today_str,
+        all_members=sorted(member_names),
+        selected_member=selected_member,
+        team_tasks=filtered_tasks
+    )
 
 
 @app.route('/leaves', methods=['GET', 'POST'])

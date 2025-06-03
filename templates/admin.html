@@ -115,7 +115,7 @@
                                 {{ names | join(', ') }}
                             </td>
                             <td>
-                                {% if task["Video Status"] == "Client Review" %}
+                                {% if task["Video Status"] == "Internal Review" %}
                                     <span style="color: #D4AC0D;">{{ task["Video Status"] }}</span>
                                 {% elif task["Video Status"] == "Not Started" %}
                                     <span style="color: #E74C3C;">{{ task["Video Status"] }}</span>

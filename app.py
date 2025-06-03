@@ -7,6 +7,7 @@ from threading import Thread
 from datetime import datetime, date
 
 
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'supersecretkey'  # Required for session management
 # --- Google Sheets Setup ---
@@ -52,7 +53,10 @@ def get_pending_work_for_user(user_full_name):
     
     for task in all_tasks:
         # Skip if task is already marked as Completed (case-insensitive)
-        if task.get("Video Status", "").strip().lower() == "completed":
+        status = task.get("Video Status", "").strip().lower()
+
+        # Skip tasks that are either Completed or in Client Review
+        if status in ("completed", "client review"):
             continue
         
         # Check if user is involved (either Video Editor or Storyboarder)
@@ -76,6 +80,12 @@ def get_pending_work_for_user(user_full_name):
         
         if start_date <= today_date:
             pending.append(task)
+
+        # ←─ newest work first
+        pending.sort(
+            key=lambda t: datetime.strptime(t["Start Date"].split()[0], "%Y-%m-%d"),
+            reverse=True
+        )
     
     return pending
 
@@ -200,8 +210,9 @@ def home():
             checkout_time = now_str
     
         # Fetch pending work from the "TRACKER (NEW)" sheet for the logged-in user
-    user_full_name = session.get('first_name') + " " + session.get('last_name')
-    pending_work = get_pending_work_for_user(user_full_name)
+
+    user_full_name = f"{session['first_name']} {session['last_name']}"
+    pending_work   = get_pending_work_for_user(user_full_name)
 
     return render_template(
         'index.html',

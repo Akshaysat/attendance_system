@@ -342,8 +342,13 @@ def admin():
     selected_member = request.args.get("member", "").strip()
     filtered_tasks = []
     for task in all_tasks:
-        if task.get("Video Status", "").strip().lower() == "completed":
+        # Skip if task is already marked as Completed (case-insensitive)
+        status = task.get("Video Status", "").strip().lower()
+
+        # Skip tasks that are either Completed or in Client Review
+        if status in ("completed", "client review"):
             continue
+        
         if selected_member:
             if selected_member not in (
                 task.get("Video Editor", ""),

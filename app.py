@@ -21,6 +21,7 @@ client = gspread.authorize(creds)
 
 # Open your spreadsheet by name (or by key)
 spreadsheet = client.open("Team Work Tracker - Money Mediia")
+spreadsheet_tasks = client.open("Core Tracker - Money Mediia")
 # Worksheets for users and attendance
 users_sheet = spreadsheet.worksheet("Users")
 attendance_sheet = spreadsheet.worksheet("Attendance")
@@ -46,25 +47,24 @@ def get_pending_work_for_user(user_full_name):
     A task is pending if its Video Status is not "Completed" and its Start Date is <= today.
     The task is assigned if the user is listed as either Video Editor or Storyboarder.
     """
-    tracker_sheet = spreadsheet.worksheet("TRACKER (NEW)")
+    tracker_sheet = spreadsheet_tasks.worksheet("Master Work Tracker (Monthly)")
     all_tasks = tracker_sheet.get_all_records()
     today_date = date.today()
     pending = []
     
     for task in all_tasks:
         # Skip if task is already marked as Completed (case-insensitive)
-        status = task.get("Video Status", "").strip().lower()
+        status = task.get("Delivery Status", "").strip().lower()
 
         # Skip tasks that are either Completed or in Client Review
-        if status in ("completed", "client review"):
+        if status in ("Done"):
             continue
         
         # Check if user is involved (either Video Editor or Storyboarder)
         video_editor = task.get("Video Editor", "").strip()
         storyboarder = task.get("Storyboarder", "").strip()
-        graphic_designer = task.get("Graphic Designer", "").strip()
 
-        if user_full_name not in (video_editor, storyboarder, graphic_designer):
+        if user_full_name not in (video_editor, storyboarder):
             continue
         
         # Convert "Start Date" to a date object and check if it is before or equal to today
@@ -90,27 +90,28 @@ def get_pending_work_for_user(user_full_name):
     return pending
 
 def get_all_team_tasks(member_name=None):
-    tracker_sheet = spreadsheet.worksheet("TRACKER (NEW)")
+
+    tracker_sheet = spreadsheet_tasks.worksheet("Master Work Tracker (Monthly)")
     all_tasks = tracker_sheet.get_all_records()
     today = date.today()
 
     # Filter out completed tasks
     filtered_tasks = []
     for task in all_tasks:
-        status = task.get("Video Status", "").strip().lower()
-        if status == "completed":
+        status = task.get("Delivery Status", "").strip().lower()
+        if status == "Done":
             continue
         
         assigned_to = [
             task.get("Video Editor", "").strip(),
-            task.get("Storyboarder", "").strip(),
-            task.get("Graphic Designer", "").strip()
+            task.get("Storyboarder", "").strip()
         ]
         
         if member_name and member_name not in assigned_to:
             continue
         
         filtered_tasks.append(task)
+        print(filtered_tasks)
     return filtered_tasks
 
 
@@ -326,13 +327,13 @@ def admin():
         })
 
     # --- Team Work Tracker ---
-    tracker_sheet = spreadsheet.worksheet("TRACKER (NEW)")
+    tracker_sheet = spreadsheet_tasks.worksheet("Master Work Tracker (Monthly)")
     all_tasks = tracker_sheet.get_all_records()
 
     # Build unique member name list
     member_names = set()
     for task in all_tasks:
-        for role in ["Video Editor", "Storyboarder", "Graphic Designer"]:
+        for role in ["Video Editor", "Storyboarder"]:
             name = task.get(role, "").strip()
             if name:
                 member_names.add(name)
@@ -343,17 +344,16 @@ def admin():
     filtered_tasks = []
     for task in all_tasks:
         # Skip if task is already marked as Completed (case-insensitive)
-        status = task.get("Video Status", "").strip().lower()
+        status = task.get("Delivery Status", "").strip().lower()
 
         # Skip tasks that are either Completed or in Client Review
-        if status in ("completed", "client review"):
+        if status == "Done":
             continue
         
         if selected_member:
             if selected_member not in (
                 task.get("Video Editor", ""),
-                task.get("Storyboarder", ""),
-                task.get("Graphic Designer", "")
+                task.get("Storyboarder", "")
             ):
                 continue
         filtered_tasks.append(task)

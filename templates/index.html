@@ -23,7 +23,7 @@
     }
     /* Overall layout */
     .container {
-      max-width: 960px;
+      max-width: 12000px;
       margin: 0 auto;
       padding: 20px;
     }
@@ -111,37 +111,39 @@
 
       <!-- Pending Work Section -->
       {% if pending_work %}
-        <h2><u>Your Pending Work</u></h2>
+        <h2><u>Monthly Work Status</u></h2>
         <table class="tracker-table">
           <thead>
             <tr>
               <th>Client Name</th>
-              <th>Project Name</th>
-              <th>Video Type</th>
               <th>Video Name</th>
+              <th>Video Type</th>
               <th>Start Date</th>
-              <th>Deadline Date</th>
-              <th>Video Status</th>
+              <th>Delivery Date</th>
+              <th>Quality Score (5)</th>
+              <th>Delivery Status</th>
             </tr>
           </thead>
           <tbody>
             {% for task in pending_work %}
               <tr>
                 <td>{{ task["Client Name"] }}</td>
-                <td>{{ task["Project Name"] }}</td>
-                <td>{{ task["Video Type"] }}</td>
                 <td>{{ task["Video Name"] }}</td>
+                <td>{{ task["Video Type"] }}</td>
                 <td>{{ task["Start Date"] }}</td>
-                <td>{{ task["Deadline Date"] }}</td>
+                <td>{{ task["Delivery Date"] }}</td>
+                <td>{{ task["Quality Score"] }}</td>
                 <td>
-                  {% if task["Video Status"] == "Internal Review" %}
-                    <span style="color: #D4AC0D;">{{ task["Video Status"] }}</span>
-                  {% elif task["Video Status"] == "Not Started" %}
-                    <span style="color: #E74C3C;">{{ task["Video Status"] }}</span>
-                  {% elif task["Video Status"] == "In Progress" %}
-                    <span style="color: #E67E22;">{{ task["Video Status"] }}</span>
+                  {% if task["Delivery Status"] == "Client Review" %}
+                    <span style="color: #D4AC0D;">{{ task["Delivery Status"] }}</span>
+                  {% elif task["Delivery Status"] == "Pending" %}
+                    <span style="color: #E74C3C;">{{ task["Delivery Status"] }}</span>
+                  {% elif task["Delivery Status"] == "In Progress" %}
+                    <span style="color: #E67E22;">{{ task["Delivery Status"] }}</span>
+                  {% elif task["Delivery Status"] == "Done" %}
+                    <span style="color: #05a93cff;">{{ task["Delivery Status"] }}</span>
                   {% else %}
-                    {{ task["Video Status"] }}
+                    {{ task["Delivery Status"] }}
                   {% endif %}
                 </td>
               </tr>

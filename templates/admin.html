@@ -6,10 +6,12 @@
     <title>Admin - Attendance</title>
     <link rel="stylesheet" href="/static/styles.css">
     <style>
-        .container {
-            max-width: 960px;
-            margin: 0 auto;
-            padding: 20px;
+        .admin-page .admin-container {
+            width: 95vw !important;       /* fill most of the viewport */
+            max-width: 1200px !important; /* cap on large screens */
+            margin: 0 auto !important;
+            padding: 20px !important;
+            box-sizing: border-box;
         }
         table {
             width: 100%;
@@ -91,41 +93,40 @@
             <table class="attendance-table">
                 <thead>
                     <tr>
-                        <th>Client</th>
-                        <th>Project</th>
+                        <th>Client Name</th>
                         <th>Video Type</th>
                         <th>Video Name</th>
-                        <th>Assigned To</th>
-                        <th>Status</th>
-                        <th>Deadline</th>
+                        <th>Video Editor</th>
+                        <th>Start Date</th>
+                        <th>Delivery Date</th>
+                        <th>Quality Score</th>
+                        <th>Delivery Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for task in team_tasks %}
                         <tr>
                             <td>{{ task["Client Name"] }}</td>
-                            <td>{{ task["Project Name"] }}</td>
                             <td>{{ task["Video Type"] }}</td>
                             <td>{{ task["Video Name"] }}</td>
+                            <td>{{ task["Video Editor"] }}</td>
+                            <td>{{ task["Start Date"] }}</td>
+                            <td>{{ task["Delivery Date"] }}</td>
+                            <td>{{ task["Quality Score"] }}</td>
                             <td>
-                                {% set names = [] %}
-                                {% if task["Video Editor"] %} {% set _ = names.append(task["Video Editor"]) %} {% endif %}
-                                {% if task["Storyboarder"] %} {% set _ = names.append(task["Storyboarder"]) %} {% endif %}
-                                {% if task["Graphic Designer"] %} {% set _ = names.append(task["Graphic Designer"]) %} {% endif %}
-                                {{ names | join(', ') }}
-                            </td>
-                            <td>
-                                {% if task["Video Status"] == "Internal Review" %}
-                                    <span style="color: #D4AC0D;">{{ task["Video Status"] }}</span>
-                                {% elif task["Video Status"] == "Not Started" %}
-                                    <span style="color: #E74C3C;">{{ task["Video Status"] }}</span>
-                                {% elif task["Video Status"] == "In Progress" %}
-                                    <span style="color: #E67E22;">{{ task["Video Status"] }}</span>
+                                {% if task["Delivery Status"] == "Client Review" %}
+                                    <span style="color: #D4AC0D;">{{ task["Delivery Status"] }}</span>
+                                {% elif task["Delivery Status"] == "Pending" %}
+                                    <span style="color: #E74C3C;">{{ task["Delivery Status"] }}</span>
+                                {% elif task["Delivery Status"] == "In Progress" %}
+                                    <span style="color: #E67E22;">{{ task["Delivery Status"] }}</span>
+                                {% elif task["Delivery Status"] == "Done" %}
+                                    <span style="color: #05a93cff;">{{ task["Delivery Status"] }}</span>
                                 {% else %}
-                                    {{ task["Video Status"] }}
+                                    {{ task["Delivery Status"] }}
                                 {% endif %}
                             </td>
-                            <td>{{ task["Deadline Date"] }}</td>
+                            
                         </tr>
                     {% endfor %}
                 </tbody>

@@ -30,9 +30,7 @@
             margin: 40px 0 20px;
             border-top: 2px solid #ddd;
         }
-        form label {
-            font-weight: bold;
-        }
+        form label { font-weight: bold; }
     </style>
 </head>
 <body class="admin-page">
@@ -40,7 +38,7 @@
         <h1>Admin Panel</h1>
 
         <!-- Attendance Table -->
-        <h3>Attendance</h3>
+        <h3>Today's Attendance</h3>
         <p><strong>Date:</strong> {{ today }}</p>
 
         {% if records %}
@@ -75,11 +73,113 @@
         <!-- Divider -->
         <div class="section-divider"></div>
 
+        <!-- Monthly Attendance Summary -->
+        <h3>Monthly Attendance Summary</h3>
+
+        <form method="GET" action="/admin" style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center;">
+        <!-- Keep existing team member filter in URL if present -->
+        {% if selected_member %}
+            <input type="hidden" name="member" value="{{ selected_member }}">
+        {% endif %}
+
+        <label for="month">Select Month:</label>
+        <input type="month" id="month" name="month" value="{{ selected_month }}" onchange="this.form.submit()" style="padding:8px;">
+        <noscript><button type="submit">Apply</button></noscript>
+        </form>
+
+        {% if monthly_summary and monthly_summary|length > 0 %}
+        <table class="attendance-table">
+        <thead>
+            <tr>
+            <th>Name</th>
+            <th>Present Days</th>
+            <th>Absent Days</th>
+            <th>Leaves Applied</th>
+            <th>Average Working Hrs</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in monthly_summary %}
+            <tr>
+            <td>{{ row.name }}</td>
+            <td>{{ row.present_days }}</td>
+            <td>{{ row.absent_days }}</td>
+            <td>{{ row.leave_days if row.leave_days else 0 }}</td>
+            <td>{{ row.avg_hours }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        </table>
+        {% else %}
+        <p>No attendance data found for the selected month.</p>
+        {% endif %}
+        <!-- Divider -->
+        <div class="section-divider"></div>
+
+        <!-- Leave Summary (Financial Year) -->
+        <h3>Leave Summary (Financial Year)</h3>
+
+        <form method="GET" action="/admin" style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center;">
+            <!-- keep other filters sticky -->
+            {% if selected_member %}
+                <input type="hidden" name="member" value="{{ selected_member }}">
+            {% endif %}
+            {% if selected_month %}
+                <input type="hidden" name="month" value="{{ selected_month }}">
+            {% endif %}
+
+            <label for="fy">Select FY:</label>
+            <select id="fy" name="fy" onchange="this.form.submit()" style="padding:8px;">
+                {% for fy in fy_options %}
+                    <option value="{{ fy }}" {% if fy == selected_fy %}selected{% endif %}>{{ fy }}</option>
+                {% endfor %}
+            </select>
+            <noscript><button type="submit">Apply</button></noscript>
+        </form>
+
+        {% if leave_summary and leave_summary|length > 0 %}
+            <table class="attendance-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Sick Leaves (6)</th>
+                        <th>Casual Leaves (8)</th>
+                        <th>Privilege Leaves (12)</th>
+                        <th>Total Leaves (26)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in leave_summary %}
+                        <tr>
+                            <td>{{ row.name }}</td>
+                            <td>{{ row.sick }}</td>
+                            <td>{{ row.casual }}</td>
+                            <td>{{ row.privilege }}</td>
+                            <td>{{ row.total }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No approved leave data found for {{ selected_fy }}.</p>
+        {% endif %}
+
+        <!-- Divider -->
+        <div class="section-divider"></div>
+
         <!-- Team Work Tracker Section -->
         <h3>Team Work Tracker</h3>
 
         <!-- Filter by Team Member -->
         <form method="GET" action="/admin" style="margin-bottom: 20px;">
+            <!-- keep month and FY sticky while changing member -->
+            {% if selected_month %}
+                <input type="hidden" name="month" value="{{ selected_month }}">
+            {% endif %}
+            {% if selected_fy %}
+                <input type="hidden" name="fy" value="{{ selected_fy }}">
+            {% endif %}
+
             <label for="member">Filter by Team Member:</label>
             <select name="member" id="member" onchange="this.form.submit()" style="width: 250px; padding: 8px;">
                 <option value="">-- All Members --</option>
@@ -126,7 +226,6 @@
                                     {{ task["Delivery Status"] }}
                                 {% endif %}
                             </td>
-                            
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -134,6 +233,9 @@
         {% else %}
             <p>No tasks found for the selected team member.</p>
         {% endif %}
+
+        <!-- Divider -->
+        <div class="section-divider"></div>
 
         <p style="margin-top: 40px;"><a href="/" class="back-link">Back to Home</a></p>
     </div>

@@ -4,8 +4,8 @@ from datetime import datetime, date
 import gspread
 from google.oauth2.service_account import Credentials
 from threading import Thread
-from datetime import datetime, date
-
+from datetime import datetime, date, timedelta
+from calendar import monthrange
 
 
 app = Flask(__name__)
@@ -27,6 +27,289 @@ users_sheet = spreadsheet.worksheet("Users")
 attendance_sheet = spreadsheet.worksheet("Attendance")
 
 # --- Helper Functions ---
+
+def _parse_date_str(s: str):
+    """Parse to date() from common formats; returns None if not parseable."""
+    if not s:
+        return None
+    s = str(s).strip()
+    # Remove trailing '(Mon)' etc if ever present
+    if "(" in s and s.endswith(")"):
+        s = s[:s.rfind("(")].strip()
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%B %d, %Y"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except Exception:
+            pass
+    return None
+
+def _month_working_dates(year: int, month: int, mon_sat=True, holidays=None, cap_today=True):
+    wd = set()
+    days = monthrange(year, month)[1]
+    today = date.today()
+    allowed = {0,1,2,3,4,5} if mon_sat else {0,1,2,3,4}  # Mon=0
+    holidays = holidays or set()
+    for d in range(1, days + 1):
+        dt = date(year, month, d)
+        if cap_today and dt > today and year == today.year and month == today.month:
+            break
+        if dt.weekday() in allowed and dt not in holidays:
+            wd.add(dt)
+    return wd
+
+def compute_monthly_attendance_summary(
+    attendance_rows,
+    users_rows,
+    year: int,
+    month: int,
+    *,
+    mon_sat=True,                 # set False for Mon–Fri
+    holidays_dates=None,          # list of 'YYYY-MM-DD' or date()
+    leaves_rows=None,             # pass Leaves if you want approved leave to reduce absences
+    count_approved_leave_as_present=True
+):
+    # Holidays -> date() set
+    holidays = set()
+    if holidays_dates:
+        for h in holidays_dates:
+            if isinstance(h, date):
+                holidays.add(h)
+            else:
+                d = _parse_date_str(h)
+                if d:
+                    holidays.add(d)
+
+    working_days = _month_working_dates(year, month, mon_sat=mon_sat, holidays=holidays, cap_today=True)
+
+    # Users map + (optional) joining_date
+    users_by_id, join_date_by_id = {}, {}
+    for u in users_rows:
+        eid = str(u.get("employee_id", "")).strip()
+        if not eid:
+            continue
+        users_by_id[eid] = u
+        jd = _parse_date_str(u.get("joining_date") or u.get("Joining Date") or "")
+        if jd:
+            join_date_by_id[eid] = jd
+
+    month_start = date(year, month, 1)
+    month_end   = date(year, month, monthrange(year, month)[1])
+
+    # Present dates & durations
+    present = {eid: set() for eid in users_by_id}
+    durations = {eid: [] for eid in users_by_id}
+
+    for r in attendance_rows:
+        eid = str(r.get("employee_id", "")).strip()
+        if eid not in users_by_id:
+            continue
+        d = _parse_date_str(r.get("date"))
+        if not d or not (month_start <= d <= month_end):
+            continue
+
+        ci = r.get("check_in_time")
+        co = r.get("check_out_time")
+        if ci:
+            present[eid].add(d)
+        try:
+            if ci and co:
+                ci_dt = datetime.strptime(ci.strip(), "%Y-%m-%d %H:%M:%S")
+                co_dt = datetime.strptime(co.strip(), "%Y-%m-%d %H:%M:%S")
+                if co_dt >= ci_dt:
+                    durations[eid].append(co_dt - ci_dt)
+        except Exception:
+            pass
+
+    # Approved leave days (optional)
+    leave_days = {eid: set() for eid in users_by_id}
+    if leaves_rows and count_approved_leave_as_present:
+        for r in leaves_rows:
+            if str(r.get("status", "")).strip().lower() != "approved":
+                continue
+            eid = str(r.get("employee_id", "")).strip()
+            if eid not in users_by_id:
+                continue
+            ld = _parse_date_str(r.get("leave_date"))
+            if not ld or not (month_start <= ld <= month_end):
+                continue
+            if ld in working_days:
+                leave_days[eid].add(ld)
+
+    # Build summary
+    rows = []
+    for eid, u in users_by_id.items():
+        # Filter working days by join date
+        jd = join_date_by_id.get(eid)
+        eff_working = {d for d in working_days if (jd is None or d >= jd)}
+
+        present_days   = len(present[eid] & eff_working)
+        approved_leave = len(leave_days[eid] & eff_working) if count_approved_leave_as_present else 0
+        total_working  = len(eff_working)
+        absent_days    = max(total_working - present_days - approved_leave, 0)
+
+        if durations[eid]:
+            avg_secs  = sum(td.total_seconds() for td in durations[eid]) / len(durations[eid])
+            avg_hours = round(avg_secs / 3600.0, 2)
+        else:
+            avg_hours = 0.0
+
+        rows.append({
+            "employee_id":  eid,
+            "name":         f"{u.get('first_name','')} {u.get('last_name','')}".strip(),
+            "present_days": present_days,
+            "leave_days":   approved_leave,   # <<< NEW
+            "absent_days":  absent_days,
+            "avg_hours":    avg_hours,
+        })
+
+    rows.sort(key=lambda x: x["name"].lower())
+    return rows
+
+def fy_label_for_date(dt: date) -> str:
+    """Return FY label like 'FY25' for a given date (Apr–Mar fiscal)."""
+    end_year = dt.year + 1 if dt.month >= 4 else dt.year
+    return f"FY{str(end_year)[-2:]}"
+
+def current_fy_label() -> str:
+    return fy_label_for_date(date.today())
+
+def fy_options_list(n=3):
+    """
+    Return list of FY labels (current, previous, ...).
+    n=3 -> [current, prev1, prev2]
+    """
+    today = date.today()
+    # Fiscal year end (calendar year) for today
+    end_year = today.year + 1 if today.month >= 4 else today.year
+    return [f"FY{str(end_year - i)[-2:]}" for i in range(n)]
+
+def compute_leave_summary(leaves_rows, users_rows, fy_label: str):
+    """
+    Robust per-active-employee leave usage for FY label (e.g. 'FY25').
+    - Only counts status == 'approved' (case-insensitive).
+    - Half-day detection: if 'half' or '0.5' appears in leave_type, counts 0.5.
+    - Recognizes types by keywords: sick/sl, casual/cl, privilege/privileged/pl.
+    - Matches employees by trimmed employee_id.
+    - FY: uses 'Financial Year' if present; otherwise computes from leave_date.
+    - Supports leave_date formats:
+        'Month DD, YYYY (ddd)', 'Month DD, YYYY', 'YYYY-MM-DD', 'DD/MM/YYYY', 'DD-MM-YYYY'
+    """
+
+    # ---------- helpers ----------
+    def norm(s): return str(s or "").strip()
+    def lower(s): return norm(s).lower()
+
+    def fy_from_date(ld: str) -> str | None:
+        s = norm(ld)
+        if not s:
+            return None
+        # remove trailing "(Wed)" etc if present
+        if "(" in s and s.endswith(")"):
+            s = s[:s.rfind("(")].strip()
+        # try multiple formats
+        for fmt in ("%B %d, %Y", "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+            try:
+                dt = datetime.strptime(s, fmt)
+                end_year = dt.year + 1 if dt.month >= 4 else dt.year
+                return f"FY{str(end_year)[-2:]}"
+            except Exception:
+                pass
+        return None
+
+    def classify_leave(leave_type_raw: str):
+        """Return ('sick'|'casual'|'privilege'|None, is_half: bool)."""
+        t = lower(leave_type_raw)
+        is_half = ("half" in t) or ("0.5" in t)
+
+        base = None
+        if "casual" in t or t == "cl":
+            base = "casual"
+        elif "privilege" in t or "privileged" in t or t == "pl":
+            base = "privilege"
+        elif "sick" in t or t == "sl":
+            base = "sick"
+        return base, is_half
+
+    want_fy = norm(fy_label)
+
+    # active users by trimmed id
+    users_by_id = {}
+    for u in users_rows:
+        eid = norm(u.get("employee_id"))
+        if eid:
+            users_by_id[eid] = u
+
+    # counters
+    used = {eid: {"sick": 0.0, "casual": 0.0, "privilege": 0.0} for eid in users_by_id}
+
+    # ---------- iterate leaves ----------
+    # (Optional debug toggles)
+    DEBUG = False
+    dbg_unmatched_fy = []
+    dbg_unknown_type = []
+    dbg_unknown_emp = []
+
+    for r in leaves_rows:
+        if lower(r.get("status")) != "approved":
+            continue
+
+        # resolve FY
+        fy_cell = norm(r.get("Financial Year"))
+        if not fy_cell:
+            fy_cell = fy_from_date(r.get("leave_date"))
+        if norm(fy_cell) != want_fy:
+            if DEBUG: dbg_unmatched_fy.append(r)
+            continue
+
+        eid = norm(r.get("employee_id"))
+        if eid not in users_by_id:
+            if DEBUG: dbg_unknown_emp.append(r)
+            continue
+
+        base, is_half = classify_leave(r.get("leave_type"))
+        if not base:
+            # not one of our three tracked types
+            if DEBUG: dbg_unknown_type.append(r)
+            continue
+
+        inc = 0.5 if is_half else 1.0
+        used[eid][base] += inc
+
+    # build rows
+    rows = []
+    for eid, u in users_by_id.items():
+        sick = used[eid]["sick"]
+        casual = used[eid]["casual"]
+        privilege = used[eid]["privilege"]
+        total = round(sick + casual + privilege, 2)
+        rows.append({
+            "employee_id": eid,
+            "name": f"{norm(u.get('first_name'))} {norm(u.get('last_name'))}".strip(),
+            "sick": sick,
+            "casual": casual,
+            "privilege": privilege,
+            "total": total,
+        })
+
+    rows.sort(key=lambda x: x["name"].lower())
+
+    if DEBUG:
+        print("[LEAVES] FY unmatched (skipped):", len(dbg_unmatched_fy))
+        print("[LEAVES] Unknown employee_id (skipped):", len(dbg_unknown_emp))
+        print("[LEAVES] Unknown type (skipped):", len(dbg_unknown_type))
+
+    return rows
+
+
+def get_active_users():
+    rows = users_sheet.get_all_records()
+    active = []
+    for r in rows:
+        status = str(r.get("Status", "")).strip().lower()
+        if status == "active":
+            r["employee_id"] = str(r.get("employee_id", "")).strip()
+            active.append(r)
+    return active
 
 def append_checkin_in_background(employee_id, today_str, now_str):
     new_id = get_next_attendance_id()
@@ -285,26 +568,26 @@ def admin():
     today_obj = date.today()
     today_str = today_obj.strftime("%Y-%m-%d")
 
+    # --- Attendance & Users ---
     attendance_data = get_all_attendance()
-    users_data = get_all_users()
+    users_active = get_active_users()  # Only Active users
 
-    # --- Attendance Records ---
+    # Map active users by ID
+    users_dict = {u.get('employee_id'): u for u in users_active if u.get('employee_id')}
+
+    # --- TODAY's Attendance ---
     processed_records = []
-    users_dict = {user['employee_id']: user for user in users_data}
-
     for record in attendance_data:
         if record.get('date') != today_str:
             continue
-
         emp_id = record.get('employee_id')
-        user = users_dict.get(emp_id, {})
+        if emp_id not in users_dict:
+            continue
+        user = users_dict[emp_id]
 
         check_in_str = record.get('check_in_time')
         check_out_str = record.get('check_out_time')
-        check_in_obj = None
-        check_out_obj = None
-        late_status = "On Time"
-        hours_worked = None
+        check_in_obj, check_out_obj, late_status, hours_worked = None, None, "On Time", None
 
         if check_in_str:
             check_in_obj = datetime.strptime(check_in_str, "%Y-%m-%d %H:%M:%S")
@@ -313,13 +596,14 @@ def admin():
 
         if check_in_obj and check_out_str:
             check_out_obj = datetime.strptime(check_out_str, "%Y-%m-%d %H:%M:%S")
-            worked_duration = check_out_obj - check_in_obj
-            hours_worked = round(worked_duration.total_seconds() / 3600, 2)
+            if check_out_obj >= check_in_obj:
+                worked_duration = check_out_obj - check_in_obj
+                hours_worked = round(worked_duration.total_seconds() / 3600, 2)
 
         processed_records.append({
             "employee_id": emp_id,
             "first_name": user.get('first_name', ''),
-            "last_name": user.get('last_name', ''),
+            "last_name":  user.get('last_name', ''),
             "check_in_time": check_in_obj,
             "check_out_time": check_out_obj,
             "late_status": late_status,
@@ -330,7 +614,6 @@ def admin():
     tracker_sheet = spreadsheet_tasks.worksheet("Master Work Tracker (Monthly)")
     all_tasks = tracker_sheet.get_all_records()
 
-    # Build unique member name list
     member_names = set()
     for task in all_tasks:
         for role in ["Video Editor", "Storyboarder"]:
@@ -339,24 +622,52 @@ def admin():
                 member_names.add(name)
     member_names = list(member_names)
 
-    # Filter by member
     selected_member = request.args.get("member", "").strip()
     filtered_tasks = []
     for task in all_tasks:
-        # Skip if task is already marked as Completed (case-insensitive)
         status = task.get("Delivery Status", "").strip().lower()
-
-        # Skip tasks that are either Completed or in Client Review
-        if status == "Done":
+        if status == "done":
             continue
-        
         if selected_member:
-            if selected_member not in (
-                task.get("Video Editor", ""),
-                task.get("Storyboarder", "")
-            ):
+            if selected_member not in (task.get("Video Editor", ""), task.get("Storyboarder", "")):
                 continue
         filtered_tasks.append(task)
+
+    # --- Leaves Sheet (reuse for monthly + FY summaries) ---
+    leaves_sheet = spreadsheet.worksheet("Leaves")
+    leaves_rows = leaves_sheet.get_all_records()
+
+    # --- Monthly Attendance Summary ---
+    month_param = request.args.get("month", "")
+    if month_param:
+        try:
+            year = int(month_param.split("-")[0])
+            month = int(month_param.split("-")[1])
+        except Exception:
+            year, month = today_obj.year, today_obj.month
+    else:
+        year, month = today_obj.year, today_obj.month
+
+    monthly_summary = compute_monthly_attendance_summary(
+        attendance_rows=attendance_data,
+        users_rows=users_active,
+        year=year,
+        month=month,
+        leaves_rows=leaves_rows,                   # include approved leaves
+        count_approved_leave_as_present=True
+    )
+    selected_month_value = f"{year:04d}-{month:02d}"
+
+    # --- Leave Summary by Financial Year ---
+    fy_param = request.args.get("fy", "").strip()
+    selected_fy = fy_param if fy_param else current_fy_label()
+    fy_options = fy_options_list(3)  # current + 2 previous
+
+    leave_summary = compute_leave_summary(
+        leaves_rows=leaves_rows,
+        users_rows=users_active,
+        fy_label=selected_fy
+    )
 
     return render_template(
         "admin.html",
@@ -364,7 +675,12 @@ def admin():
         today=today_str,
         all_members=sorted(member_names),
         selected_member=selected_member,
-        team_tasks=filtered_tasks
+        team_tasks=filtered_tasks,
+        monthly_summary=monthly_summary,
+        selected_month=selected_month_value,
+        leave_summary=leave_summary,
+        fy_options=fy_options,
+        selected_fy=selected_fy
     )
 
 

@@ -84,6 +84,12 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 </head>
 <body>
+  <div id="page-loader" class="hidden" aria-live="polite" aria-busy="true">
+    <div class="loader-box">
+      <div class="spinner" role="img" aria-label="Loading"></div>
+      <div>Loading…</div>
+    </div>
+  </div>
   <div class="container">
     <h1>Leave Dashboard</h1>
     
@@ -218,6 +224,40 @@
       {{ used_leaves["Privilege Leave"] }}, 
       {{ remaining_leaves["Privilege Leave"] }}, 
       ['rgba(255, 206, 86, 0.7)', 'rgba(255, 159, 64, 0.7)']);
+  </script>
+  <script>
+  (function(){
+    const loader = document.getElementById('page-loader');
+    function show(){ if(loader) loader.classList.remove('hidden'); }
+    function hide(){ if(loader) loader.classList.add('hidden'); }
+
+    // Show on any form submission (covers check-in/out, filters, login, etc.)
+    function hookForms(){
+      document.querySelectorAll('form').forEach(f => {
+        f.addEventListener('submit', () => { show(); });
+      });
+    }
+
+    // Show on navigational link clicks
+    function hookLinks(){
+      document.querySelectorAll('a[href]').forEach(a => {
+        a.addEventListener('click', () => {
+          const href = a.getAttribute('href');
+          if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+          if (a.target === '_blank' || a.hasAttribute('data-no-loader')) return;
+          show();
+        });
+      });
+    }
+
+    // Ensure loader hides when page restored from bfcache (back/forward)
+    window.addEventListener('pageshow', hide);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      hookForms();
+      hookLinks();
+    });
+  })();
   </script>
 </body>
 </html>

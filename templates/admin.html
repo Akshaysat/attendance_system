@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin - Attendance</title>
-    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/styles.css" />
     <style>
         .admin-page .admin-container {
             width: 95vw !important;       /* fill most of the viewport */
@@ -23,9 +23,7 @@
             padding: 10px;
             text-align: left;
         }
-        th {
-            background-color: #f2f2f2;
-        }
+        th { background-color: #f2f2f2; }
         .section-divider {
             margin: 40px 0 20px;
             border-top: 2px solid #ddd;
@@ -34,6 +32,14 @@
     </style>
 </head>
 <body class="admin-page">
+    <!-- Loader overlay -->
+    <div id="page-loader" class="hidden" aria-live="polite" aria-busy="true">
+        <div class="loader-box">
+            <div class="spinner" role="img" aria-label="Loading"></div>
+            <div>Loading…</div>
+        </div>
+    </div>
+
     <div class="container admin-container">
         <h1>Admin Panel</h1>
 
@@ -42,32 +48,32 @@
         <p><strong>Date:</strong> {{ today }}</p>
 
         {% if records %}
-            <table class="attendance-table">
-                <thead>
-                    <tr>
-                        <th>Employee ID</th>
-                        <th>Full Name</th>
-                        <th>Check-In Time</th>
-                        <th>Check-Out Time</th>
-                        <th>Late Status</th>
-                        <th>Hours Worked</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for record in records %}
-                        <tr>
-                            <td>{{ record.employee_id }}</td>
-                            <td>{{ record.first_name }} {{ record.last_name }}</td>
-                            <td>{{ record.check_in_time.strftime('%H:%M:%S') if record.check_in_time else 'Not Recorded' }}</td>
-                            <td>{{ record.check_out_time.strftime('%H:%M:%S') if record.check_out_time else 'Not Recorded' }}</td>
-                            <td>{{ record.late_status }}</td>
-                            <td>{{ record.hours_worked if record.hours_worked else 'Not Available' }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <table class="attendance-table">
+            <thead>
+                <tr>
+                    <th>Employee ID</th>
+                    <th>Full Name</th>
+                    <th>Check-In Time</th>
+                    <th>Check-Out Time</th>
+                    <th>Late Status</th>
+                    <th>Hours Worked</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                <tr>
+                    <td>{{ record.employee_id }}</td>
+                    <td>{{ record.first_name }} {{ record.last_name }}</td>
+                    <td>{{ record.check_in_time.strftime('%H:%M:%S') if record.check_in_time else 'Not Recorded' }}</td>
+                    <td>{{ record.check_out_time.strftime('%H:%M:%S') if record.check_out_time else 'Not Recorded' }}</td>
+                    <td>{{ record.late_status }}</td>
+                    <td>{{ record.hours_worked if record.hours_worked else 'Not Available' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
         {% else %}
-            <p>No attendance records found for today.</p>
+        <p>No attendance records found for today.</p>
         {% endif %}
 
         <!-- Divider -->
@@ -77,42 +83,50 @@
         <h3>Monthly Attendance Summary</h3>
 
         <form method="GET" action="/admin" style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center;">
-        <!-- Keep existing team member filter in URL if present -->
-        {% if selected_member %}
-            <input type="hidden" name="member" value="{{ selected_member }}">
-        {% endif %}
+            <!-- Keep existing team member filter in URL if present -->
+            {% if selected_member %}
+                <input type="hidden" name="member" value="{{ selected_member }}">
+            {% endif %}
 
-        <label for="month">Select Month:</label>
-        <input type="month" id="month" name="month" value="{{ selected_month }}" onchange="this.form.submit()" style="padding:8px;">
-        <noscript><button type="submit">Apply</button></noscript>
+            <label for="month">Select Month:</label>
+            <input
+                type="month"
+                id="month"
+                name="month"
+                value="{{ selected_month }}"
+                onchange="window.__showLoaderAndSubmit && window.__showLoaderAndSubmit(this.form)"
+                style="padding:8px;"
+            />
+            <noscript><button type="submit">Apply</button></noscript>
         </form>
 
         {% if monthly_summary and monthly_summary|length > 0 %}
         <table class="attendance-table">
-        <thead>
-            <tr>
-            <th>Name</th>
-            <th>Present Days</th>
-            <th>Absent Days</th>
-            <th>Leaves Applied</th>
-            <th>Average Working Hrs</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for row in monthly_summary %}
-            <tr>
-            <td>{{ row.name }}</td>
-            <td>{{ row.present_days }}</td>
-            <td>{{ row.absent_days }}</td>
-            <td>{{ row.leave_days if row.leave_days else 0 }}</td>
-            <td>{{ row.avg_hours }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Present Days</th>
+                    <th>Absent Days</th>
+                    <th>Leaves Applied</th>
+                    <th>Average Working Hrs</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in monthly_summary %}
+                <tr>
+                    <td>{{ row.name }}</td>
+                    <td>{{ row.present_days }}</td>
+                    <td>{{ row.absent_days }}</td>
+                    <td>{{ row.leave_days if row.leave_days else 0 }}</td>
+                    <td>{{ row.avg_hours }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
         {% else %}
         <p>No attendance data found for the selected month.</p>
         {% endif %}
+
         <!-- Divider -->
         <div class="section-divider"></div>
 
@@ -129,7 +143,12 @@
             {% endif %}
 
             <label for="fy">Select FY:</label>
-            <select id="fy" name="fy" onchange="this.form.submit()" style="padding:8px;">
+            <select
+                id="fy"
+                name="fy"
+                onchange="window.__showLoaderAndSubmit && window.__showLoaderAndSubmit(this.form)"
+                style="padding:8px;"
+            >
                 {% for fy in fy_options %}
                     <option value="{{ fy }}" {% if fy == selected_fy %}selected{% endif %}>{{ fy }}</option>
                 {% endfor %}
@@ -138,30 +157,30 @@
         </form>
 
         {% if leave_summary and leave_summary|length > 0 %}
-            <table class="attendance-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Sick Leaves (6)</th>
-                        <th>Casual Leaves (8)</th>
-                        <th>Privilege Leaves (12)</th>
-                        <th>Total Leaves (26)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in leave_summary %}
-                        <tr>
-                            <td>{{ row.name }}</td>
-                            <td>{{ row.sick }}</td>
-                            <td>{{ row.casual }}</td>
-                            <td>{{ row.privilege }}</td>
-                            <td>{{ row.total }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <table class="attendance-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Sick Leaves (6)</th>
+                    <th>Casual Leaves (8)</th>
+                    <th>Privilege Leaves (12)</th>
+                    <th>Total Leaves (26)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in leave_summary %}
+                <tr>
+                    <td>{{ row.name }}</td>
+                    <td>{{ row.sick }}</td>
+                    <td>{{ row.casual }}</td>
+                    <td>{{ row.privilege }}</td>
+                    <td>{{ row.total }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
         {% else %}
-            <p>No approved leave data found for {{ selected_fy }}.</p>
+        <p>No approved leave data found for {{ selected_fy }}.</p>
         {% endif %}
 
         <!-- Divider -->
@@ -181,7 +200,12 @@
             {% endif %}
 
             <label for="member">Filter by Team Member:</label>
-            <select name="member" id="member" onchange="this.form.submit()" style="width: 250px; padding: 8px;">
+            <select
+                name="member"
+                id="member"
+                onchange="window.__showLoaderAndSubmit && window.__showLoaderAndSubmit(this.form)"
+                style="width: 250px; padding: 8px;"
+            >
                 <option value="">-- All Members --</option>
                 {% for member in all_members %}
                     <option value="{{ member }}" {% if member == selected_member %}selected{% endif %}>{{ member }}</option>
@@ -190,48 +214,48 @@
         </form>
 
         {% if team_tasks %}
-            <table class="attendance-table">
-                <thead>
-                    <tr>
-                        <th>Client Name</th>
-                        <th>Video Type</th>
-                        <th>Video Name</th>
-                        <th>Video Editor</th>
-                        <th>Start Date</th>
-                        <th>Delivery Date</th>
-                        <th>Quality Score</th>
-                        <th>Delivery Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for task in team_tasks %}
-                        <tr>
-                            <td>{{ task["Client Name"] }}</td>
-                            <td>{{ task["Video Type"] }}</td>
-                            <td>{{ task["Video Name"] }}</td>
-                            <td>{{ task["Video Editor"] }}</td>
-                            <td>{{ task["Start Date"] }}</td>
-                            <td>{{ task["Delivery Date"] }}</td>
-                            <td>{{ task["Quality Score"] }}</td>
-                            <td>
-                                {% if task["Delivery Status"] == "Client Review" %}
-                                    <span style="color: #D4AC0D;">{{ task["Delivery Status"] }}</span>
-                                {% elif task["Delivery Status"] == "Pending" %}
-                                    <span style="color: #E74C3C;">{{ task["Delivery Status"] }}</span>
-                                {% elif task["Delivery Status"] == "In Progress" %}
-                                    <span style="color: #E67E22;">{{ task["Delivery Status"] }}</span>
-                                {% elif task["Delivery Status"] == "Done" %}
-                                    <span style="color: #05a93cff;">{{ task["Delivery Status"] }}</span>
-                                {% else %}
-                                    {{ task["Delivery Status"] }}
-                                {% endif %}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <table class="attendance-table">
+            <thead>
+                <tr>
+                    <th>Client Name</th>
+                    <th>Video Type</th>
+                    <th>Video Name</th>
+                    <th>Video Editor</th>
+                    <th>Start Date</th>
+                    <th>Delivery Date</th>
+                    <th>Quality Score</th>
+                    <th>Delivery Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in team_tasks %}
+                <tr>
+                    <td>{{ task["Client Name"] }}</td>
+                    <td>{{ task["Video Type"] }}</td>
+                    <td>{{ task["Video Name"] }}</td>
+                    <td>{{ task["Video Editor"] }}</td>
+                    <td>{{ task["Start Date"] }}</td>
+                    <td>{{ task["Delivery Date"] }}</td>
+                    <td>{{ task["Quality Score"] }}</td>
+                    <td>
+                        {% if task["Delivery Status"] == "Client Review" %}
+                            <span style="color: #D4AC0D;">{{ task["Delivery Status"] }}</span>
+                        {% elif task["Delivery Status"] == "Pending" %}
+                            <span style="color: #E74C3C;">{{ task["Delivery Status"] }}</span>
+                        {% elif task["Delivery Status"] == "In Progress" %}
+                            <span style="color: #E67E22;">{{ task["Delivery Status"] }}</span>
+                        {% elif task["Delivery Status"] == "Done" %}
+                            <span style="color: #05a93cff;">{{ task["Delivery Status"] }}</span>
+                        {% else %}
+                            {{ task["Delivery Status"] }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
         {% else %}
-            <p>No tasks found for the selected team member.</p>
+        <p>No tasks found for the selected team member.</p>
         {% endif %}
 
         <!-- Divider -->
@@ -239,5 +263,55 @@
 
         <p style="margin-top: 40px;"><a href="/" class="back-link">Back to Home</a></p>
     </div>
+
+    <script>
+    (function(){
+      const loader = document.getElementById('page-loader');
+
+      // Expose helpers so inline onchange handlers can call them before navigation
+      window.__showLoader = function(){ if(loader) loader.classList.remove('hidden'); };
+      window.__showLoaderAndSubmit = function(form){
+        try {
+          if (!form) return;
+          if (loader) loader.classList.remove('hidden');
+          if (form.dataset.submitting === '1') return; // prevent double submits
+          form.dataset.submitting = '1';
+          setTimeout(function(){
+            if (form.requestSubmit) form.requestSubmit(); else form.submit();
+          }, 50); // small delay to allow paint of loader
+        } catch (e) { if (form) form.submit(); }
+      };
+
+      function show(){ if(loader) loader.classList.remove('hidden'); }
+      function hide(){ if(loader) loader.classList.add('hidden'); }
+
+      // Show on any form submission (covers filters & other forms)
+      function hookForms(){
+        document.querySelectorAll('form').forEach(f => {
+          f.addEventListener('submit', () => { show(); });
+        });
+      }
+
+      // Show on navigational link clicks
+      function hookLinks(){
+        document.querySelectorAll('a[href]').forEach(a => {
+          a.addEventListener('click', () => {
+            const href = a.getAttribute('href');
+            if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+            if (a.target === '_blank' || a.hasAttribute('data-no-loader')) return;
+            show();
+          });
+        });
+      }
+
+      // Ensure loader hides when page is restored from bfcache
+      window.addEventListener('pageshow', hide);
+
+      document.addEventListener('DOMContentLoaded', () => {
+        hookForms();
+        hookLinks();
+      });
+    })();
+    </script>
 </body>
 </html>
